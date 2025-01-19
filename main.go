@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -11,6 +12,8 @@ import (
 
 func main() {
 
+	deleteEnabled := flag.Bool("d", false, "Delete detected branches")
+	flag.Parse() 
 
 	cwd, err := os.Getwd()
 
@@ -31,16 +34,16 @@ func main() {
 	if err != nil { panic(err) }
 
 	// Check if there is uncommited changes in current branch if so stash them and defer pop
-	// worktree, err := repo.Worktree()
-	// if err != nil { panic(err) }
+	worktree, err := repo.Worktree()
+	if err != nil { panic(err) }
 
-	// status, err := worktree.Status()
-	// if err != nil { panic(err) }
+	status, err := worktree.Status()
+	if err != nil { panic(err) }
 
 
-	// if !status.IsClean() {
-	// 	panic("Pending changes, stashing not yet supported")
-	// }
+	if !status.IsClean() {
+		panic("Pending changes, stashing not yet supported")
+	}
 
 	// Check for multiple remotes
 
@@ -55,7 +58,6 @@ func main() {
 	if err != nil { panic(err) }
 
 	branches.ForEach(func(branch *plumbing.Reference) error {
-		fmt.Println(branch.Name().String())
 
 		branchName := branch.Name().Short()
 		
@@ -67,6 +69,7 @@ func main() {
 			// This means the remote branch does not exist
 			return nil
 		}
+
 
 		iter, err := repo.Log(&git.LogOptions{From: remoteRef.Hash()})
 
@@ -84,10 +87,18 @@ func main() {
 
 		if err != nil { panic(err) }
 
-		if !hasCommit {
-			fmt.Println("Branch is behind remote")
+		if hasCommit {
+			// This means remote branch includes our latest local commit
+
+			if *deleteEnabled {
+				// Delete branch
+				err = repo.Storer.RemoveReference(branch.Name())
+				if err != nil { panic(err) }
+			} else {
+				fmt.Println(branch)
+			}
 		}
-		
+
 
 		return nil
 	})
