@@ -27,6 +27,8 @@ func main() {
 		Prune: true,
 	})
 
+
+	
 	if err != nil { panic(err) }
 
 	branches, err := repo.Branches()
@@ -34,32 +36,46 @@ func main() {
 	if err != nil { panic(err) }
 
 	// Check if there is uncommited changes in current branch if so stash them and defer pop
-	worktree, err := repo.Worktree()
-	if err != nil { panic(err) }
+	// worktree, err := repo.Worktree()
+	// if err != nil { panic(err) }
 
-	status, err := worktree.Status()
-	if err != nil { panic(err) }
+	// status, err := worktree.Status()
+	// if err != nil { panic(err) }
 
 
-	if !status.IsClean() {
-		panic("Pending changes, stashing not yet supported")
-	}
+	// if !status.IsClean() {
+	// 	panic("Pending changes, stashing not yet supported")
+	// }
 
 	// Check for multiple remotes
 
-	remotes, err := repo.Remotes()
-
-	if len(remotes) != 1 {
-		panic("Multiple remotes not yet supported")
-	}
-
-	remote := remotes[0]
+	remote, err := repo.Remote("origin")
 
 	if err != nil { panic(err) }
+
+	references, _ := remote.List(&git.ListOptions{})
+	// Search through the list of references in that remote for a symbolic reference named HEAD;
+	// Its target should be the default branch name.
+	defaultBranch := ""
+	for _, reference := range references {
+		if reference.Name() == "HEAD" && reference.Type() == plumbing.SymbolicReference {
+			defaultBranch = reference.Target().Short()
+			break
+		}
+	}
+
+	if defaultBranch == "" {
+		panic("Could not find default branch")
+	}
 
 	branches.ForEach(func(branch *plumbing.Reference) error {
 
 		branchName := branch.Name().Short()
+
+		if branchName == defaultBranch {
+			// Skip default branch
+			return nil
+		}
 		
 		// Check if branch exists in remote
 		remoteRef, err := repo.Reference(plumbing.NewRemoteReferenceName(remote.Config().Name, branchName), true)
